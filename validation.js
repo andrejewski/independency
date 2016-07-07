@@ -1,15 +1,15 @@
 const assert = require('assert');
 
 function Options(options) {
-  assert.equals(typeof options.filepath, 'string');
-  assert.equals(typeof options.shouldAddFile, 'function');
-  assert.equals(typeof options.analyze, 'function');
+  assert.equal(typeof options.filepath, 'string');
+  assert.equal(typeof options.shouldAddFile, 'function');
+  assert.equal(typeof options.analyze, 'function');
 }
 
 function File(data) {
   assert(typeof data.path, 'string');
   assert(Array.isArray(data.imports));
-  data.imports.forEach(import => Import(import));
+  data.imports.forEach(imp => Import(imp));
   assert(Array.isArray(data.exports));
   data.exports.forEach(value => Value(value));
 }
@@ -28,9 +28,9 @@ function Value(data) {
 }
 
 function Reference(data) {
-  assert.equals(typeof data.as, 'string');
-  assert.equals(typeof data.line, 'number');
-  assert.equals(typeof data.column, 'number');
+  assert.equal(typeof data.as, 'string');
+  assert.equal(typeof data.line, 'number');
+  assert.equal(typeof data.column, 'number');
 }
 
 module.exports = {Options, File, Import, Value, Reference};

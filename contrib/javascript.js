@@ -1,24 +1,32 @@
 const path = require('path');
 const acorn = require('acorn/dist/acorn_loose');
+const walk = require('acorn/dist/walk');
 const resolve = require('resolve');
 
-function javascript(filepath, code) {
+function javascript(filepath, code, next) {
   const ast = acorn.parse_dammit(code, {locations: true});
   const resolveOptions = {
     basedir: path.dirname(filepath),
     extensions: ['.js', '.json'],
   };
   let imports = importStatements(ast);
-  // if(!imports.length) imports = staticRequireStatements(ast);
-  imports = imports.map(imp => {
-    imp.file.path = resolve(imp.file.path, resolveOptions);
-    return imp;
-  });
-
+  if(!imports.length) imports = staticRequireStatements(ast);
   let exports = exportStatements(ast);
   // if(!exports.length) exports = moduleExportStatements(ast);
 
-  return {imports, exports};
+  if(next) {
+    async.map(imports, (imp, next) => {
+      resolve(imp.file.path, resolveOptions, (error, path) => {
+        if(error) return next(error);
+        imp.file.path = path;
+        next(null, imp);
+      });
+    }, (error, imports) => {
+      next(error, {imports, exports});
+    })
+  } else {
+    return {imports, exports};
+  }
 }
 
 function importStatements(ast) {
@@ -44,8 +52,8 @@ function importStatements(ast) {
     });
 }
 
-function exportStatments(ast) {
-  return ast
+function exportStatements(ast) {
+  return ast.body
     .filter(node => {
       return node.type === 'ExportDefaultDeclaration' ||
         node.type === 'ExportNamedDeclaration';
@@ -64,6 +72,28 @@ function exportStatments(ast) {
         references: []
       };
     });
+}
+
+function staticRequireStatements(ast) {
+  var requires = [];
+  var visitors = {
+    CallExpression(node) {
+      const namedRequire = node.callee.name === 'require';
+      const arg = node.arguments.pop();
+      const hasSingleStringArg = (
+        arg &&
+        !node.arguments.length &&
+        arg.type === 'Literal' && (
+          arg.raw.startsWith(`'`) ||
+          arg.raw.startsWith(`"`)));
+      if(namedRequire && hasSingleStringArg) {
+        const file = {path: arg.value};
+        requires.push({file, values: []});
+      }
+    }
+  };
+  walk.simple(ast, visitors);
+  return requires;
 }
 
 module.exports = javascript;
